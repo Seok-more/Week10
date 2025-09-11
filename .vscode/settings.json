@@ -1,0 +1,17 @@
+{
+    "files.associations": {
+        "thread.h": "c",
+        "timer.h": "c",
+        "random": "c",
+        "synch.h": "c",
+        "numbers": "c",
+        "array": "c",
+        "chrono": "c",
+        "compare": "c",
+        "functional": "c",
+        "ratio": "c",
+        "tuple": "c",
+        "type_traits": "c",
+        "utility": "c"
+    }
+}
