@@ -345,24 +345,8 @@ void cond_wait (struct condition *cond, struct lock *lock)
 
 	sema_init (&waiter.semaphore, 0);
 
-	printf("[cond_wait] Thread %s (priority: %d) waiting on cond, inserting to cond->waiters\n", thread_current()->name, thread_current()->priority);
-	
-	
 	list_insert_ordered(&cond->waiters,&waiter.elem,sort_sema_priority, NULL);
-	
-	printf("[cond_wait] cond->waiters: ");
-	struct list_elem *e;
-	for (e = list_begin(&cond->waiters); e != list_end(&cond->waiters); e = list_next(e)) {
-		struct semaphore_elem *sema_elem = list_entry(e, struct semaphore_elem, elem);
-		if (!list_empty(&sema_elem->semaphore.waiters)) {
-			struct thread *t = list_entry(list_front(&sema_elem->semaphore.waiters), struct thread, elem);
-			printf("%s(%d) ", t->name, t->priority);
-		} else {
-			printf("EMPTY ");
-		}
-	}
-	printf("\n");
-	
+
 	lock_release (lock);
 	sema_down (&waiter.semaphore);
 	lock_acquire (lock);

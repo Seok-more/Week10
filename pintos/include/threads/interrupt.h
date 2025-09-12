@@ -34,10 +34,13 @@ struct gp_registers {
 	uint64_t rax;
 } __attribute__((packed));
 
+// 인터럽트 진입 시점에서 사용자 프로세스/커널의 실행 컨텍스트를 스택에 쌓아둔 걸 
+// 그대로 구조체로 매핑해둔 거죠.
+
 struct intr_frame {
 	/* Pushed by intr_entry in intr-stubs.S.
 	   These are the interrupted task's saved registers. */
-	struct gp_registers R;
+	struct gp_registers R; // 레지스터들
 	uint16_t es;
 	uint16_t __pad1;
 	uint32_t __pad2;
@@ -52,13 +55,13 @@ struct intr_frame {
 	uint64_t error_code;
 /* Pushed by the CPU.
    These are the interrupted task's saved registers. */
-	uintptr_t rip;
-	uint16_t cs;
+	uintptr_t rip;	// 명령어 포인터
+	uint16_t cs; // 코드 세그먼트 레지스터
 	uint16_t __pad5;
 	uint32_t __pad6;
-	uint64_t eflags;
-	uintptr_t rsp;
-	uint16_t ss;
+	uint64_t eflags; // CPU 상태 플래그 (인터럽트 허용 여부(IF), 산술 결과 플래그 등)
+	uintptr_t rsp; // 유저 프로세스가 시작할 때 사용할 스택 포인터 값
+	uint16_t ss; // 스택 세그먼트
 	uint16_t __pad7;
 	uint32_t __pad8;
 } __attribute__((packed));

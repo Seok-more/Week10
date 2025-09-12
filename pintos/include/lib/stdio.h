@@ -25,6 +25,14 @@ int puts (const char *);
 
 /* Nonstandard functions. */
 void hex_dump (uintptr_t ofs, const void *, size_t size, bool ascii);
+// ofs : 메모리 주소나 시작 위치인 오프셋
+// * :메모리 시작주소, rsp
+// size : 몇 바이트 출력
+// true -> 아스키, false -> 16진수
+// hex_dump에서 NULL 문자는 보통 **.**으로 표시됨
+
+
+
 
 /* Internal functions. */
 void __vprintf (const char *format, va_list args,

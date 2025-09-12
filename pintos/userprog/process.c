@@ -27,6 +27,9 @@ static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
 
+// 여기 추가
+static void set_argument_Ustack(char **argv, uintptr_t *rsp, int argc);
+
 /* General process initializer for initd and other process. */
 static void
 process_init (void) {
@@ -38,8 +41,10 @@ process_init (void) {
  * before process_create_initd() returns. Returns the initd's
  * thread id, or TID_ERROR if the thread cannot be created.
  * Notice that THIS SHOULD BE CALLED ONCE. */
-tid_t
-process_create_initd (const char *file_name) {
+
+// "initd"라는 첫 번째 사용자 프로세스를 생성하는 함수입니다.
+tid_t process_create_initd (const char *file_name) 
+{
 	char *fn_copy;
 	tid_t tid;
 
@@ -48,12 +53,14 @@ process_create_initd (const char *file_name) {
 	fn_copy = palloc_get_page (0);
 	if (fn_copy == NULL)
 		return TID_ERROR;
-	strlcpy (fn_copy, file_name, PGSIZE);
+	strlcpy (fn_copy, file_name, PGSIZE); // 파일 이름 가져오기 
 
 	/* Create a new thread to execute FILE_NAME. */
 	tid = thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
 	if (tid == TID_ERROR)
+	{
 		palloc_free_page (fn_copy);
+	}
 	return tid;
 }
 
@@ -158,10 +165,10 @@ error:
 	thread_exit ();
 }
 
-/* Switch the current execution context to the f_name.
- * Returns -1 on fail. */
-int
-process_exec (void *f_name) {
+// 현재 실행 중인 프로세스(스레드)의 실행 컨텍스트(코드, 데이터 등)를 새 바이너리 파일로 교체하여, 
+// 지정한 파일을 실행하도록 하는 역할을 합니다. 즉, 현재 프로세스가 다른 프로그램으로 "변신"하는 것입니다.
+int process_exec (void *f_name) // f_name: 실행 하려는 파일의 이름
+{
 	char *file_name = f_name;
 	bool success;
 
@@ -176,13 +183,62 @@ process_exec (void *f_name) {
 	/* We first kill the current context */
 	process_cleanup ();
 
-	/* And then load the binary */
-	success = load (file_name, &_if);
+	// Error!
+	// strtok_r가 file_name을 직접 변경해서 
+	// "args-single onearg"라는 전체 문자열을 보존하지 않고, "onearg" 부분만 남거나, 첫 번째 토큰 뒤가 NULL로 잘림
+	// 그 후, load (file_name, &_if)를 해서 file_name이 "onearg" 등으로 바뀌어서 못찾음 
+
+	// char *argv[64];
+    // char *ptr_save;
+
+	// char *parsed = strtok_r(file_name, " ", &ptr_save);
+	// int argc = 0;
+
+    // while (parsed != NULL) 
+	// {
+	// 	argv[argc++] = parsed;
+	// 	parsed = strtok_r(NULL, " ", &ptr_save); // 다음 커맨드로
+	// }
+
+	// /* And then load the binary */
+	// success = load (file_name, &_if);
+
+	// set_argument_Ustack(argv, &_if.rsp, argc); // 함수 내부에서 parse와 rsp의 값을 직접 변경하기 위해 주소 전달
+    // _if.R.rsi = (char *)_if.rsp + 8; // argv
+	// _if.R.rdi = argc; // argc
+
+    // hex_dump(_if.rsp, _if.rsp, USER_STACK - (uint64_t)_if.rsp, true); 
+
+	// 수정본
+	char *argv[64];
+	char *ptr_save;
+
+	// file_name을 복사해서 파싱
+	char file_name_copy[128];
+	strlcpy(file_name_copy, file_name, sizeof(file_name_copy));
+
+	char *parsed = strtok_r(file_name_copy, " ", &ptr_save);
+	int argc = 0;
+	while (parsed != NULL) 
+	{
+		argv[argc++] = parsed;
+		parsed = strtok_r(NULL, " ", &ptr_save); // 다음
+	}
+
+	// 프로그램 이름만 넘기고 
+	success = load(argv[0], &_if); // "args-single"
+
+	set_argument_Ustack(argv, &_if.rsp, argc); 
+
+	_if.R.rsi = (char *)_if.rsp + 8; // argv
+	_if.R.rdi = argc; // argc
+
+	// 디버깅 테스트
+	hex_dump(_if.rsp, _if.rsp, USER_STACK - (uint64_t)_if.rsp, true); 
 
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
-	if (!success)
-		return -1;
+	if (!success) return -1;
 
 	/* Start switched process. */
 	do_iret (&_if);
@@ -199,11 +255,25 @@ process_exec (void *f_name) {
  *
  * This function will be implemented in problem 2-2.  For now, it
  * does nothing. */
-int
-process_wait (tid_t child_tid UNUSED) {
+// process_wait는 부모 프로세스가 자식 프로세스가 종료될 때까지 기다리게 하는 함수입니다.
+// 부모가 호출하면, 자식이 종료(exit)할 때까지 블로킹(block) 되고, 종료 시 자식의 exit status를 반환합니다.
+int process_wait (tid_t child_tid UNUSED) 
+{
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
+
+
+	while (1)
+	{
+
+	}
+
+	for (int i = 0; i < 10000000000; i++)
+  	{
+
+ 	}
+
 	return -1;
 }
 
@@ -637,3 +707,48 @@ setup_stack (struct intr_frame *if_) {
 	return success;
 }
 #endif /* VM */
+
+// main(argc, argv) 여기에 맞도록 유저 스택에 스택 프레임을 세팅
+static void set_argument_Ustack(char **argv, uintptr_t *rsp, int argc)
+{
+	// 문자열의 스택 주소 저장용, 128바이트로 제한하래
+    char *vec_argv[128];
+
+	// 스택은 위 -> 아래
+	// 인자도 큰 -> 작
+    for (int i = argc - 1; i >= 0; i--)
+    {
+		// 각 인자 문자열을 스택에 복사
+        size_t len = strlen(argv[i]) + 1;
+        *rsp -= len;                    
+        memcpy((void *)(*rsp), argv[i], len);
+        vec_argv[i] = (char *)(*rsp);  // 스택 주소도 저장해주고
+    }
+
+	// 8바이트 정렬 삽입
+    while (*rsp % 8 != 0)
+    {
+        (*rsp)--;
+        *((uint8_t *)(*rsp)) = 0;	// 패딩값
+    }
+
+	// Error!
+	// argv 배열은 마지막이 NULL로 끝나야 함
+    (*rsp) -= 8;
+    *((char **)(*rsp)) = NULL;
+
+	// 각 인자 문자열의 주소도 스택에 넣음
+	// main의 argv는 ver_argv를 봄
+    for (int i = argc - 1; i >= 0; i--)
+    {
+        (*rsp) -= 8;
+        *((char **)(*rsp)) = vec_argv[i];
+    }
+
+	// 마지막 페이크 리턴 주소
+    (*rsp) -= 8;
+    *((void **)(*rsp)) = NULL;
+}
+
+
+

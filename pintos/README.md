@@ -2,379 +2,276 @@ Brand new pintos for Operating Systems and Lab (CS330), KAIST, by Youngjin Kwon.
 
 The manual is available at https://casys-kaist.github.io/pintos-kaist/.
 
----
+----------------------------------------------------------
+1. 프로젝트 목표
 
-pintos -- -q run alarm-multiple
+Pintos 프로젝트 2(User Program)의 주 목표는 
+사용자 프로그램을 실행하고 관리할 수 있는 OS 기능을 구현하는 것입니다.
+핵심은 커널 모드와 사용자 모드 간의 전환, 시스템 콜 지원, 프로세스 관리입니다.
 
-jungle@a6412c5c73e2:/workspaces/pintos_22.04_lab_docker/pintos/threads/build$ 
-make tests/threads/priority-donate-chain.result
+- 1.User Mode 지원
+    - Pintos 기본 스레드는 커널 모드만 사용합니다.
+    - 프로젝트 2에서는 사용자 프로그램을 실행하기 위해 User Mode를 구현해야 합니다.
+    - 이를 위해 x86-64 아키텍처의 유저 스택, 레지스터, 코드 영역을 올바르게 설정해야 합니다.
 
-## **얼마나 많은     코드를 작성해야 하나요?**
-- 참고 솔루션에서 `git diff --stat`로 계산한 결과:
-    - **총 330줄 추가, 12줄 삭제**
-    - 주로 수정/추가하는 파일:
-        - `devices/timer.c` : Alarm Clock 등 타이머 관련 로직 (29줄 추가)
-        - `include/threads/fixed-point.h` : 고정소수점 연산 라이브러리(새 파일, 10줄 추가)
-        - `include/threads/synch.h` : 동기화 헤더(4줄 추가)
-        - `include/threads/thread.h` : 스레드 헤더(21줄 추가)
-        - `threads/synch.c` : 동기화 구현(143줄 추가/수정)
-        - `threads/thread.c` : 스레드 구현(135줄 추가/수정)
-    - **fixed-point.h**는 새로 추가하는 파일.
-    - 참고 솔루션은 여러 가지 중 하나일 뿐이며, 여러분의 코드가 꼭 모든 파일을 동일하게 수정할 필요는 없다.
+- 2.System Call 지원
 
----
+    - 사용자 프로그램에서 OS 기능을 사용하기 위한 시스템 콜을 구현합니다.
+    - 예: halt(), exit(), exec(), wait(), read(), write(), create(), remove(), open(), filesize(), seek(), tell(), close()
+    - 프로젝트 2에서는 시스템 콜 테이블을 작성하고 인터럽트 0x30을 통해 커널로 전환하여 처리합니다.
 
-## **새 소스 파일을 추가할 때 Makefile은 어떻게 수정하나요?**
-- `.c` 파일을 추가할 때는 해당 디렉토리의 `targets.mk`에서 `dir_SRC` 변수에 파일 이름을 추가.
-    - 예: `threads_SRC += fixed-point.c`
-- 추가 후 `make` 실행.
-- 새 `.h` 파일은 Makefile 수정 필요 없음.
-
----
-
-## **warning: no previous prototype for func 의미**
-- static이 아닌 함수의 선언부(프로토타입)가 헤더에 없을 때 발생.
-- 해결법:
-    - 헤더 파일에 프로토타입 추가.
-    - 만약 외부에서 안 쓴다면 `static`으로 변경.
-
----
-
-## **타이머 인터럽트 간격은?**
-- 초당 `TIMER_FREQ`번 발생.
-- 기본값: 100Hz (`devices/timer.h`)
-- 값 바꾸지 말 것(테스트 실패 위험).
-
----
-
-## **타임슬라이스 길이는?**
-- 한 타임슬라이스는 `TIME_SLICE` 틱 (기본 4, `threads/thread.c`에서 선언)
-- 값 바꾸지 말 것(테스트 실패 위험).
-
----
-
-## **테스트 실행 방법**
-- "Testing" 섹션 참고.
-
----
-
-## **pass() 테스트 실패 원인?**
-- 백트레이스에 pass()가 찍혀도 실제로는 fail()에서 panic이 발생한 것.
-- GCC가 debug_panic()이 반환하지 않는 함수임을 알기 때문에, 리턴 주소가 pass()처럼 보임.
-- 자세한 건 "Backtraces" 참고.
-
----
-
-## **schedule() 후 인터럽트 재활성화는 어떻게?**
-- schedule() 진입 경로는 모두 인터럽트 off.
-- 다음 스레드가 실행될 때 각 경로에서 인터럽트 on:
-    - thread_exit(): 해당 스레드로 다시 전환되지 않음.
-    - thread_yield(): 복귀 시 인터럽트 복구.
-    - thread_block(): 여러 곳에서 호출됨.
-        - sema_down(): schedule() 복귀 시 인터럽트 복구.
-        - idle(): 명시적으로 어셈블리 STI(인터럽트 on).
-        - wait() in devices/intq.c: 호출자가 직접 복구.
-    - 새로 생성된 스레드는 kernel_thread()에서 intr_enable()을 호출.
-
----
-
-## **타이머 값 오버플로우 고려 필요?**
-- 64비트 signed 정수로 표현(초당 100틱 기준 약 2조 9천억년까지 안전).
-- 오버플로우 걱정 필요 없음.
-
----
-
-## **우선순위 스케줄링은 starvation(기아 현상) 발생?**
-- 엄격한 우선순위 스케줄링은 starvation 가능.
-- advanced scheduler에서는 우선순위가 동적으로 변함.
-- 실시간 시스템에서는 엄격한 우선순위가 유용(공정성보다 긴급성).
-
----
-
-## **락 해제 후 어떤 스레드가 실행되어야 하나?**
-- 락을 기다리던 스레드 중 **가장 높은 우선순위**의 스레드를 깨워야 함.
-- 스케줄러도 ready list에서 가장 높은 우선순위 스레드를 실행.
-
----
-
-## **최고 우선순위 스레드가 yield하면 계속 실행?**
-- 네. 블록되거나 종료되지 않는 한 계속 실행.
-- 만약 동일 우선순위 스레드가 여러 개면 round-robin 방식으로 전환됨.
-
----
-
-## **우선순위 기부 시 donor의 우선순위 변화?**
-- 기부는 받은 쪽(donated-to thread) 우선순위만 변화.
-- donor(thread A)가 thread B에게 기부하면 B의 우선순위가 A와 같아짐(합산 아님).
-
----
-
-## **ready queue에 있는 스레드의 우선순위 변경 가능?**
-- 예. 예시: 락을 점유한 낮은 우선순위 스레드가 high-priority 스레드에게 기부받을 수 있음.
-
----
-
-## **blocked 상태에서도 우선순위가 바뀔 수 있나?**
-- 네. 락을 점유한 스레드가 blocked된 상태에서 high-priority 스레드가 락을 요청하면 기부받을 수 있음.
-
----
-
-## **ready list에 추가된 스레드가 프로세서 선점 가능?**
-- 네. running thread보다 높은 우선순위면 즉시 선점해야 함(다음 인터럽트까지 기다리면 안 됨).
-
----
-
-## **thread_set_priority()와 기부된 스레드의 관계?**
-- thread_set_priority()는 base priority를 설정.
-- effective priority는 base와 기부받은 우선순위 중 더 높은 값.
-- 기부가 끝나면 base priority로 복귀.
-
----
-
-## **테스트 출력에 테스트 이름이 두 번 찍히는 경우?**
-- 여러 스레드의 출력이 섞여서 생기는 현상.
-- 예: (alarm-priority) (alarm-priority) Thread priority 30 woke up.
-- 높은 우선순위 스레드가 실행 중일 때 낮은 스레드가 실행되는 문제(스케줄러 버그).
-- PintOS printf()는 콘솔 락을 사용해 출력이 섞이는 걸 방지하지만, 테스트 이름과 메시지가 각각 따로 printf 호출되어 락이 두 번 걸림.
-
----
-
-## **priority donation과 advanced scheduler의 상호작용?**
-- 동시에 테스트하지 않음(별개).
-
----
-
-## **큐를 64개 대신 1개만 써도 되는가?**
-- 동작만 동일하다면 구현 방식은 달라도 됨.
-
----
-
-## **고급 스케줄러 테스트 실패 시 원인?**
-- 테스트 소스/주석을 꼼꼼히 읽고 목적과 기대 결과 확인.
-- fixed-point 연산과 스케줄러의 사용법 점검.
-- timer 인터럽트에서 너무 많은 작업을 하면, 인터럽트 이후 스레드가 실제로 일할 시간에 불이익 발생.
-- 이로 인해 그 스레드의 recent_cpu 값이 부풀려지고, 우선순위가 낮아지며, 스케줄링이 이상해질 수 있음.
-
----
-
-**요약**  
-- 코드양: 대략 300~400줄 내외(참고 솔루션 기준)
-- 파일 추가/수정 시 Makefile 관리
-- 우선순위, 락, 스케줄러, 인터럽트 동작 등 원리와 디테일 중요
-- starvation, priority donation, 선점, 스케줄러 로직 등 꼭 숙지
-
-필요하면 각 항목에 대한 더 구체적인 설명/예시/실제 코드 안내 가능합니다!
-
-lib/kernel 쪽에 데이터 구조 등등있더라
-
-# Alarm Clock 구현
-Translation of call stack:
-pass tests/threads/alarm-single
-pass tests/threads/alarm-multiple
-pass tests/threads/alarm-simultaneous
-FAIL tests/threads/alarm-priority
-pass tests/threads/alarm-zero
-pass tests/threads/alarm-negative
-FAIL tests/threads/priority-change
-FAIL tests/threads/priority-donate-one
-FAIL tests/threads/priority-donate-multiple
-FAIL tests/threads/priority-donate-multiple2
-FAIL tests/threads/priority-donate-nest
-FAIL tests/threads/priority-donate-sema
-FAIL tests/threads/priority-donate-lower
-FAIL tests/threads/priority-fifo
-FAIL tests/threads/priority-preempt
-FAIL tests/threads/priority-sema
-FAIL tests/threads/priority-condvar
-FAIL tests/threads/priority-donate-chain
-FAIL tests/threads/mlfqs/mlfqs-load-1
-FAIL tests/threads/mlfqs/mlfqs-load-60
-FAIL tests/threads/mlfqs/mlfqs-load-avg
-FAIL tests/threads/mlfqs/mlfqs-recent-1
-pass tests/threads/mlfqs/mlfqs-fair-2
-pass tests/threads/mlfqs/mlfqs-fair-20
-FAIL tests/threads/mlfqs/mlfqs-nice-2
-FAIL tests/threads/mlfqs/mlfqs-nice-10
-FAIL tests/threads/mlfqs/mlfqs-block
-20 of 27 tests failed.
-make[1]: *** [../../tests/Make.tests:29: check] Error 1
-make[1]: Leaving directory '/workspaces/pintos_22.04_lab_docker/pintos/threads/build'
-make: *** [../Makefile.kernel:10: check] Error 2
+- 3.프로세스 관리
+    - 프로세스 생성 (process_execute)
+    - 프로세스 종료 (process_exit)
+    - 프로세스 기다리기 (process_wait)
+    - 각 프로세스의 exit status 관리
+    - 부모-자식 관계 유지 (자식 프로세스가 종료될 때 부모가 status를 확인 가능)
 
 
-# priority 기본 추가
-Translation of call stack:
-pass tests/threads/alarm-single
-pass tests/threads/alarm-multiple
-pass tests/threads/alarm-simultaneous
-pass tests/threads/alarm-priority
-pass tests/threads/alarm-zero
-pass tests/threads/alarm-negative
-pass tests/threads/priority-change
-FAIL tests/threads/priority-donate-one
-FAIL tests/threads/priority-donate-multiple
-FAIL tests/threads/priority-donate-multiple2
-FAIL tests/threads/priority-donate-nest
-FAIL tests/threads/priority-donate-sema
-FAIL tests/threads/priority-donate-lower
-pass tests/threads/priority-fifo
-pass tests/threads/priority-preempt
-FAIL tests/threads/priority-sema
-FAIL tests/threads/priority-condvar
-FAIL tests/threads/priority-donate-chain
-FAIL tests/threads/mlfqs/mlfqs-load-1
-FAIL tests/threads/mlfqs/mlfqs-load-60
-FAIL tests/threads/mlfqs/mlfqs-load-avg
-FAIL tests/threads/mlfqs/mlfqs-recent-1
-pass tests/threads/mlfqs/mlfqs-fair-2
-pass tests/threads/mlfqs/mlfqs-fair-20
-FAIL tests/threads/mlfqs/mlfqs-nice-2
-FAIL tests/threads/mlfqs/mlfqs-nice-10
-FAIL tests/threads/mlfqs/mlfqs-block
-16 of 27 tests failed.
-make[1]: *** [../../tests/Make.tests:29: check] Error 1
-make[1]: Leaving directory '/workspaces/pintos_22.04_lab_docker/pintos/threads/build'
-make: *** [../Makefile.kernel:10: check] Error 2
+2. 핵심 구조체
+struct thread 
+{
+    ...
+    uint64_t *pagedir;       // 64-bit KAIST 버전에서는 Page Table
+    struct file **fd_table;  // 프로세스별 파일 디스크립터 테이블
+    int next_fd;             // 다음 파일 디스크립터 번호
+    struct semaphore load_sema; // exec 완료 대기
+    int exit_status;         // exit() 값 저장
+    ...
+};
+    - pagedir: 사용자 프로세스의 페이지 테이블
+    - fd_table: 파일 디스크립터 관리 (open, close)
+    - load_sema: 부모 프로세스가 자식 프로세스 로딩 완료까지 대기
+    - exit_status: exit()에서 전달된 상태 저장
 
-# priority + sema/condvar fix
-pass tests/threads/alarm-single
-pass tests/threads/alarm-multiple
-pass tests/threads/alarm-simultaneous
-pass tests/threads/alarm-priority
-pass tests/threads/alarm-zero
-pass tests/threads/alarm-negative
-pass tests/threads/priority-change
-FAIL tests/threads/priority-donate-one
-FAIL tests/threads/priority-donate-multiple
-FAIL tests/threads/priority-donate-multiple2
-FAIL tests/threads/priority-donate-nest
-FAIL tests/threads/priority-donate-sema
-FAIL tests/threads/priority-donate-lower
-pass tests/threads/priority-fifo
-pass tests/threads/priority-preempt
-pass tests/threads/priority-sema
-pass tests/threads/priority-condvar
-FAIL tests/threads/priority-donate-chain
-FAIL tests/threads/mlfqs/mlfqs-load-1
-FAIL tests/threads/mlfqs/mlfqs-load-60
-FAIL tests/threads/mlfqs/mlfqs-load-avg
-FAIL tests/threads/mlfqs/mlfqs-recent-1
-pass tests/threads/mlfqs/mlfqs-fair-2
-pass tests/threads/mlfqs/mlfqs-fair-20
-FAIL tests/threads/mlfqs/mlfqs-nice-2
-FAIL tests/threads/mlfqs/mlfqs-nice-10
-FAIL tests/threads/mlfqs/mlfqs-block
-14 of 27 tests failed.
 
-# 기본적인 단일 PD 추가
-pass tests/threads/alarm-single
-pass tests/threads/alarm-multiple
-pass tests/threads/alarm-simultaneous
-pass tests/threads/alarm-priority
-pass tests/threads/alarm-zero
-pass tests/threads/alarm-negative
-pass tests/threads/priority-change
-pass tests/threads/priority-donate-one
-FAIL tests/threads/priority-donate-multiple
-pass tests/threads/priority-donate-multiple2
-FAIL tests/threads/priority-donate-nest
-FAIL tests/threads/priority-donate-sema
-FAIL tests/threads/priority-donate-lower
-FAIL tests/threads/priority-fifo
-pass tests/threads/priority-preempt
-FAIL tests/threads/priority-sema
-FAIL tests/threads/priority-condvar
-FAIL tests/threads/priority-donate-chain
-FAIL tests/threads/mlfqs/mlfqs-load-1
-FAIL tests/threads/mlfqs/mlfqs-load-60
-FAIL tests/threads/mlfqs/mlfqs-load-avg
-FAIL tests/threads/mlfqs/mlfqs-recent-1
-pass tests/threads/mlfqs/mlfqs-fair-2
-pass tests/threads/mlfqs/mlfqs-fair-20
-FAIL tests/threads/mlfqs/mlfqs-nice-2
-FAIL tests/threads/mlfqs/mlfqs-nice-10
-FAIL tests/threads/mlfqs/mlfqs-block
-15 of 27 tests failed.
-make: *** [../../tests/Make.tests:29: check] Error 1
--> 
-추가 pass:
-priority-donate-one, priority-donate-multiple2
-추가 fail:
-priority-fifo, 
-priority-sema,
-priority-condvar 
+struct intr_frame 
+{
+    uint64_t rip;    // instruction pointer
+    uint64_t rsp;    // stack pointer
+    uint64_t rflags; // flags
+    uint64_t rax, rbx, rcx, ... // 레지스터
+    ...
+};
+    - 사용자 모드 진입 시 스택과 레지스터 초기화
+    - 시스템 콜, 인터럽트에서 커널 모드 진입 시 현재 상태 저장
 
-# 중첩된 PD 추가  처리
-Translation of call stack:
-pass tests/threads/alarm-single
-pass tests/threads/alarm-multiple
-pass tests/threads/alarm-simultaneous
-pass tests/threads/alarm-priority
-pass tests/threads/alarm-zero
-pass tests/threads/alarm-negative
-FAIL tests/threads/priority-change
-pass tests/threads/priority-donate-one
-pass tests/threads/priority-donate-multiple
-pass tests/threads/priority-donate-multiple2
-pass tests/threads/priority-donate-nest
-pass tests/threads/priority-donate-sema
-FAIL tests/threads/priority-donate-lower
-FAIL tests/threads/priority-fifo
-pass tests/threads/priority-preempt
-FAIL tests/threads/priority-sema
-FAIL tests/threads/priority-condvar
-FAIL tests/threads/priority-donate-chain
-FAIL tests/threads/mlfqs/mlfqs-load-1
-FAIL tests/threads/mlfqs/mlfqs-load-60
-FAIL tests/threads/mlfqs/mlfqs-load-avg
-FAIL tests/threads/mlfqs/mlfqs-recent-1
-pass tests/threads/mlfqs/mlfqs-fair-2
-pass tests/threads/mlfqs/mlfqs-fair-20
-FAIL tests/threads/mlfqs/mlfqs-nice-2
-FAIL tests/threads/mlfqs/mlfqs-nice-10
-FAIL tests/threads/mlfqs/mlfqs-block
-13 of 27 tests failed.
-->
-priority-donate-multiple,
-priority-donate-nest,
-priority-donate-sema가 추가로 통과
+3. 시스템 콜 처리 흐름
+    - 1.사용자 프로그램이 write() 호출
+    - 2.CPU가 인터럽트 0x30 발생
+    - 3.syscall_handler() 호출
+    - 4.사용자 스택에서 인자 읽기
+    - 5.권한 체크 및 검증
+    - 6.실제 커널 함수 호출
+    - 7.반환 값 레지스터에 저장 후 사용자 모드 복귀
+    --> 사용자 프로그램이 직접 하드웨어 접근하지 못하게 하고, 시스템 콜로만 OS 기능 접근.
 
-priority-change가 실패함
+4. 프로세스 로딩 과정 (process_execute → load)
+    1. process_execute() 호출 → 새 스레드 생성
+    2. 스레드 내부 start_process()에서:
+        - ELF 파일 파싱
+        - 메모리 매핑
+        - 사용자 스택 생성
+        - argc/argv 스택에 세팅
+    3. sema_up(&load_sema)로 부모에게 로딩 완료 알림
+    4. intr_exit()를 통해 사용자 모드로 점프
 
-# thread_set_priority에선 오리지널을 바꿔야함
-pass tests/threads/alarm-single
-pass tests/threads/alarm-multiple
-pass tests/threads/alarm-simultaneous
-pass tests/threads/alarm-priority
-pass tests/threads/alarm-zero
-pass tests/threads/alarm-negative
-pass tests/threads/priority-change
-pass tests/threads/priority-donate-one
-pass tests/threads/priority-donate-multiple
-pass tests/threads/priority-donate-multiple2
-pass tests/threads/priority-donate-nest
-pass tests/threads/priority-donate-sema
-pass tests/threads/priority-donate-lower
-pass tests/threads/priority-fifo
-pass tests/threads/priority-preempt
-pass tests/threads/priority-sema
-FAIL tests/threads/priority-condvar
-pass tests/threads/priority-donate-chain
-FAIL tests/threads/mlfqs/mlfqs-load-1
-FAIL tests/threads/mlfqs/mlfqs-load-60
-FAIL tests/threads/mlfqs/mlfqs-load-avg
-FAIL tests/threads/mlfqs/mlfqs-recent-1
-pass tests/threads/mlfqs/mlfqs-fair-2
-pass tests/threads/mlfqs/mlfqs-fair-20
-FAIL tests/threads/mlfqs/mlfqs-nice-2
-FAIL tests/threads/mlfqs/mlfqs-nice-10
-FAIL tests/threads/mlfqs/mlfqs-block
-8 of 27 tests failed.
-->
-FAIL tests/threads/priority-condvar
-이것만 남음
+5. 프로세스 종료 (process_exit)
+    - 열린 파일 닫기
+    - 페이지 테이블 해제
+    - 부모에게 exit status 전달
+    - 스레드 종료
 
-# 와 이건 진짜 뭔 ?? 퇴물 검색
+6. 주의 포인트 (64비트 KAIST 버전)
+    - 1.x86-64 레지스터와 스택 정렬
+        System V AMD64 ABI에 따라 rsp를 16바이트 정렬
+    - 2.pagedir 대신 4-level page table 사용
+    - 3.파일 디스크립터 테이블 크기 제한
+        기본적으로 최대 128개 정도
+    - 4.동기화: sema와 lock으로 부모-자식/파일 접근 동기화
+
+-----------------------------------------------------------
+1. Argument Passing
+: 유저 프로그램을 실행하기 위해, 커맨드 라인에 입력된 인자들을 유저 스택에 올리는 과정
+
+- 1. 커맨드 라인을 파싱
+
+-- set_arument_Ustack
+- 2. 유저 스택에 파싱된 스트링 저장(역순, align 정렬해서)
+- 3. 유저 스택에 스트링 주소도 저장(argv[])
+-- set_arument_Ustack
+
+- 4. 스택에 argc값올리고 argv 시작주소를 레지스터에 저장
+_if.R.rsi, _if.R.rdi
+
+- 5. main()에다가 인자를 넘겨주면 끝
+
+char *ptr_save;
+strtok_r(file_name," ", &ptr_save);
+"echo hello world"
+-> "echo\0hello\0world"
+--> 
+file_name:	'e' 'c' 'h' 'o' '\0' 'h' 'e' 'l' 'l' 'o' '\0' 'w' 'o' 'r' 'l' 'd' '\0'
+token:	"echo" (포인터)
+ptr_save:	
+포인터, "hello world"에서 'h' 위치
+
+parsed = strtok_r(file_name, " ", &ptr_save);  // parsed -> "ls"
+parsed = strtok_r(NULL, " ", &ptr_save);       // parsed -> "-l"
+parsed = strtok_r(NULL, " ", &ptr_save);       // parsed -> "/home"
+
+
+
+- 실행 흐름
+// 유튜브 카이스트 강의랑 코드랑 차이 좀 있으니까 잘 바꾸셈
+    : init.c main(argc, argv) -> run_actions-> run_task -> 
+    process_create_initd -> thread_create -> initd -> process_exec -> load -> set_argument_Ustack-> do_iret 
+    -> 유저프로그램의 main()
+
+%rsi -> argv
+%rdi -> argc
+
+rsp --->  [NULL]         (argv 끝 표시)
+rsp+8 ->  [&"ls"]        (argv[0])
+rsp+16 -> [&"-l"]        (argv[1])
+rsp+24 -> [&"/home"]     (argv[2])
+
+initd : 최초의 유저 프로세스
+
+
+
+@@@@@ while(1) 사용 시
+
+[커널 부팅]
+      │
+      ▼
+[initd 스레드 생성]
+      │
+      ▼
+[initd: process_exec(args-single)]
+      │
+      ▼
+[process_wait(initd) → while(1) 무한 대기]
+      │  <--- 부모(initd) 종료 안 됨
+      │
+      ▼
+[args-single 스레드 실행]
+      │
+      ▼
+[set_argument_Ustack() → user stack 세팅]
+      │
+      ▼
+[hex_dump 출력]
+      │
+      ▼
+[args-single 실행 완료 → system call]
+
+
+@@@@@ for 루프 사용 시
+
+[커널 부팅]
+      │
+      ▼
+[initd 스레드 생성]
+      │
+      ▼
+[initd: process_exec(args-single)]
+      │
+      ▼
+[process_wait(initd) → for loop 끝남]
+      │
+      ▼
+[initd 종료]  
+      │
+      ▼
+[커널 판단: 모든 initd 종료 → 전원 끄기/시뮬 종료]
+      │
+      ▼
+[args-single 실행 전에 종료됨]
+      │
+      ▼
+hex_dump 출력 X
+
+
+-----------------------------------------------------------
+# 최초 시도
+FAIL tests/userprog/args-none
+FAIL tests/userprog/args-single
+FAIL tests/userprog/args-multiple
+FAIL tests/userprog/args-many
+FAIL tests/userprog/args-dbl-space
+FAIL tests/userprog/halt
+FAIL tests/userprog/exit
+FAIL tests/userprog/create-normal
+FAIL tests/userprog/create-empty
+FAIL tests/userprog/create-null
+FAIL tests/userprog/create-bad-ptr
+FAIL tests/userprog/create-long
+FAIL tests/userprog/create-exists
+FAIL tests/userprog/create-bound
+FAIL tests/userprog/open-normal
+FAIL tests/userprog/open-missing
+FAIL tests/userprog/open-boundary
+FAIL tests/userprog/open-empty
+FAIL tests/userprog/open-null
+FAIL tests/userprog/open-bad-ptr
+FAIL tests/userprog/open-twice
+FAIL tests/userprog/close-normal
+FAIL tests/userprog/close-twice
+FAIL tests/userprog/close-bad-fd
+FAIL tests/userprog/read-normal
+FAIL tests/userprog/read-bad-ptr
+FAIL tests/userprog/read-boundary
+FAIL tests/userprog/read-zero
+FAIL tests/userprog/read-stdout
+FAIL tests/userprog/read-bad-fd
+FAIL tests/userprog/write-normal
+FAIL tests/userprog/write-bad-ptr
+FAIL tests/userprog/write-boundary
+FAIL tests/userprog/write-zero
+FAIL tests/userprog/write-stdin
+FAIL tests/userprog/write-bad-fd
+FAIL tests/userprog/fork-once
+FAIL tests/userprog/fork-multiple
+FAIL tests/userprog/fork-recursive
+FAIL tests/userprog/fork-read
+FAIL tests/userprog/fork-close
+FAIL tests/userprog/fork-boundary
+FAIL tests/userprog/exec-once
+FAIL tests/userprog/exec-arg
+FAIL tests/userprog/exec-boundary
+FAIL tests/userprog/exec-missing
+FAIL tests/userprog/exec-bad-ptr
+FAIL tests/userprog/exec-read
+FAIL tests/userprog/wait-simple
+FAIL tests/userprog/wait-twice
+FAIL tests/userprog/wait-killed
+FAIL tests/userprog/wait-bad-pid
+FAIL tests/userprog/multi-recurse
+FAIL tests/userprog/multi-child-fd
+FAIL tests/userprog/rox-simple
+FAIL tests/userprog/rox-child
+FAIL tests/userprog/rox-multichild
+FAIL tests/userprog/bad-read
+FAIL tests/userprog/bad-write
+FAIL tests/userprog/bad-read2
+FAIL tests/userprog/bad-write2
+FAIL tests/userprog/bad-jump
+FAIL tests/userprog/bad-jump2
+FAIL tests/filesys/base/lg-create
+FAIL tests/filesys/base/lg-full
+FAIL tests/filesys/base/lg-random
+FAIL tests/filesys/base/lg-seq-block
+FAIL tests/filesys/base/lg-seq-random
+FAIL tests/filesys/base/sm-create
+FAIL tests/filesys/base/sm-full
+FAIL tests/filesys/base/sm-random
+FAIL tests/filesys/base/sm-seq-block
+FAIL tests/filesys/base/sm-seq-random
+FAIL tests/filesys/base/syn-read
+FAIL tests/filesys/base/syn-remove
+FAIL tests/filesys/base/syn-write
+FAIL tests/userprog/no-vm/multi-oom
 pass tests/threads/alarm-single
 pass tests/threads/alarm-multiple
 pass tests/threads/alarm-simultaneous
@@ -393,46 +290,42 @@ pass tests/threads/priority-preempt
 pass tests/threads/priority-sema
 pass tests/threads/priority-condvar
 pass tests/threads/priority-donate-chain
-FAIL tests/threads/mlfqs/mlfqs-load-1
-FAIL tests/threads/mlfqs/mlfqs-load-60
-FAIL tests/threads/mlfqs/mlfqs-load-avg
-FAIL tests/threads/mlfqs/mlfqs-recent-1
-pass tests/threads/mlfqs/mlfqs-fair-2
-pass tests/threads/mlfqs/mlfqs-fair-20
-FAIL tests/threads/mlfqs/mlfqs-nice-2
-FAIL tests/threads/mlfqs/mlfqs-nice-10
-FAIL tests/threads/mlfqs/mlfqs-block
-7 of 27 tests failed.
+77 of 95 tests failed.
 
-make tests/threads/mlfqs/mlfqs-load-1.result
+make tests/userprog/args-none.result
 
-# mlfqs 
-pass tests/threads/mlfqs/mlfqs-block
-pass tests/threads/alarm-single
-pass tests/threads/alarm-multiple
-pass tests/threads/alarm-simultaneous
-pass tests/threads/alarm-priority
-pass tests/threads/alarm-zero
-pass tests/threads/alarm-negative
-pass tests/threads/priority-change
-pass tests/threads/priority-donate-one
-pass tests/threads/priority-donate-multiple
-pass tests/threads/priority-donate-multiple2
-pass tests/threads/priority-donate-nest
-pass tests/threads/priority-donate-sema
-pass tests/threads/priority-donate-lower
-pass tests/threads/priority-fifo
-pass tests/threads/priority-preempt
-pass tests/threads/priority-sema
-pass tests/threads/priority-condvar
-pass tests/threads/priority-donate-chain
-pass tests/threads/mlfqs/mlfqs-load-1
-pass tests/threads/mlfqs/mlfqs-load-60
-pass tests/threads/mlfqs/mlfqs-load-avg
-pass tests/threads/mlfqs/mlfqs-recent-1
-pass tests/threads/mlfqs/mlfqs-fair-2
-pass tests/threads/mlfqs/mlfqs-fair-20
-pass tests/threads/mlfqs/mlfqs-nice-2
-pass tests/threads/mlfqs/mlfqs-nice-10
-pass tests/threads/mlfqs/mlfqs-block
-All 27 tests passed.
+pintos --fs-disk=10 -p tests/userprog/args-single:args-single -- -q -f run 'args-single onearg'
+
+# Argument passing
+pintos --fs-disk=10 -p tests/userprog/args-single:args-single -- -q -f run 'args-single onearg'
+
+SeaBIOS (version 1.15.0-1)
+
+
+iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+0FF8B4A0+0FECB4A0 CA00
+                                                                               
+
+
+Booting from Hard Disk..Kernel command line: -q -f put args-single run 'args-single onearg'
+0 ~ 9fc00 1
+100000 ~ ffe0000 1
+Pintos booting with: 
+        base_mem: 0x0 ~ 0x9fc00 (Usable: 639 kB)
+        ext_mem: 0x100000 ~ 0xffe0000 (Usable: 260,992 kB)
+Calibrating timer...  419,020,800 loops/s.
+hd0: unexpected interrupt
+hd0:0: detected 329 sector (164 kB) disk, model "QEMU HARDDISK", serial "QM00001"
+hd0:1: detected 20,160 sector (9 MB) disk, model "QEMU HARDDISK", serial "QM00002"
+hd1: unexpected interrupt
+hd1:0: detected 118 sector (59 kB) disk, model "QEMU HARDDISK", serial "QM00003"
+Formatting file system...done.
+Boot complete.
+Putting 'args-single' into the file system...
+Executing 'args-single onearg':
+000000004747ffc0                          00 00 00 00 00 00 00 00 |        ........|
+000000004747ffd0  ed ff 47 47 00 00 00 00-f9 ff 47 47 00 00 00 00 |..GG......GG....|
+000000004747ffe0  00 00 00 00 00 00 00 00-00 00 00 00 00 61 72 67 |.............arg|
+000000004747fff0  73 2d 73 69 6e 67 6c 65-00 6f 6e 65 61 72 67 00 |s-single.onearg.|
+system call!
+...무한대기
+
