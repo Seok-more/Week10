@@ -15,6 +15,7 @@
 #include "threads/interrupt.h"
 #include "threads/palloc.h"
 #include "threads/thread.h"
+#include "threads/synch.h"
 #include "threads/mmu.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
@@ -53,7 +54,7 @@ tid_t process_create_initd (const char *file_name)
 	fn_copy = palloc_get_page (0);
 	if (fn_copy == NULL)
 		return TID_ERROR;
-	strlcpy (fn_copy, file_name, PGSIZE); // 파일 이름 가져오기 
+	strlcpy (fn_copy, file_name, PGSIZE); 
 
 	/* Create a new thread to execute FILE_NAME. */
 	tid = thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
@@ -263,16 +264,19 @@ int process_wait (tid_t child_tid UNUSED)
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
 
+	// while (1)
+	// {
 
-	while (1)
-	{
+	// }
 
-	}
-
-	for (int i = 0; i < 10000000000; i++)
+	for (int i = 0; i < 1000000000; i++)
   	{
 
  	}
+
+
+	// sema_down();
+
 
 	return -1;
 }

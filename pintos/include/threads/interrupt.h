@@ -31,7 +31,7 @@ struct gp_registers {
 	uint64_t rdx;
 	uint64_t rcx;
 	uint64_t rbx;
-	uint64_t rax;
+	uint64_t rax; // 시스템 콜 넘버 저장
 } __attribute__((packed));
 
 // 인터럽트 진입 시점에서 사용자 프로세스/커널의 실행 컨텍스트를 스택에 쌓아둔 걸 
@@ -60,7 +60,7 @@ struct intr_frame {
 	uint16_t __pad5;
 	uint32_t __pad6;
 	uint64_t eflags; // CPU 상태 플래그 (인터럽트 허용 여부(IF), 산술 결과 플래그 등)
-	uintptr_t rsp; // 유저 프로세스가 시작할 때 사용할 스택 포인터 값
+	uintptr_t rsp; // 유저 프로세스가 시작할 때 사용할 스택 포인터 값 -> 최상단
 	uint16_t ss; // 스택 세그먼트
 	uint16_t __pad7;
 	uint32_t __pad8;
