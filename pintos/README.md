@@ -192,6 +192,35 @@ initd : 최초의 유저 프로세스
       ▼
 hex_dump 출력 X
 
+
+| 구분       |  내용         | Pintos-KAIST 코드 맥락       | 스택/메모리                                  |
+| ----------|---------------| ----------------------------- | ----------------------------------------- |
+|User mode | 제한된 CPU 권한, 일반 유저 프로그램 실행 | `initd` 실행, `do_iret()` 이후  | 유저 스택 사용, 커널 스택 접근 불가 |
+
+| Kernel mode | 모든 권한, OS 핵심 기능 수행| 스레드 생성, ELF 로딩, 시스템 콜 처리  | 커널 스택 사용, 유저 스택 접근 가능(초기화/세팅)  |
+
+|User Stack| 유저 전용 스택, 함수 호출/argv/지역 변수 저장 | `setup_stack()`에서 초기화 → `if_->rsp = USER_STACK` | 최상단 주소에서 아래로 성장, 스택 오버플로우 시 segfault 발생 |
+
+|Segmentation Fault| 허용되지 않은 메모리 접근 시 발생 | 유저 코드에서 Page Fault → `page_fault()` → 프로세스 종료  | User stack/허용 메모리 영역 외 접근 시, 커널 스택은 안전  |
+
+
+[커널 모드]
+main/init.c → run_task → process_create_initd → thread_create
+        │
+        └─ initd() → process_exec()
+              │
+              ├─ load()          : ELF 로딩
+              ├─ setup_stack()   : 유저 스택 초기화, if_->rsp 세팅
+              └─ do_iret(&if_)   : CPU User mode 전환, rsp = USER_STACK
+                    │
+            [유저 모드 실행 시작: initd ELF 실행]
+                    │
+            User Stack 사용 → 함수 호출, 인자(argv) 접근
+                    │
+            잘못된 메모리 접근 → Page Fault → Segmentation Fault
+                    │
+            커널 page_fault() → 프로세스 종료
+
 -----------------------------------------------------------
 2. System call
 
@@ -257,6 +286,38 @@ printf ("%s: exit(%d)\n", ...);
 2. file_allow_write()를 호출하면 다시 쓰기가 허용되지만, 다른 프로세스가 이미 해당 파일에 쓰기를 금지한 상태라면 허용되지 않습니다.
 
 3. 파일을 닫으면 쓰기 금지가 자동으로 해제됩니다.
+
+쓰레드가 만들어지면
+-파일 디스크립터 테이블 allocate
+-FDT에 포인터 초기화 하고
+-fd0, fd1은 stdin, stdout으로 예약
+
+쓰레드가 없어지면
+-close all files
+-FDT deallocate
+
+! Use global lock to avoid race on file
+- define global lock on syscall.h(struct lock filesys_lock)
+- initialize the lock on syscall_init() (use lock_init)
+- protect filesystem related code by global lock
+
+! Modify page_fault() for test
+pintos needs to kill the process and print the thread name and the exit status -1 when page fault occurs
+(O)
+
+! PML4 (Page Map Level 4)
+: 
+- x86-64 페이징 시스템에서 최상위(4단계 중 1단계) 페이지 테이블입니다.
+- 각 프로세스(스레드)는 자신의 주소 공간을 관리하기 위해 pml4를 갖고 있습니다.
+- thread_current()->pml4는 현재 실행 중인 스레드의 페이지 테이블 최상위 포인터입니다.
+
+ /** Project2: for Test Case - 직접 프로그램을 실행할 때에는 이 함수를 사용하지 않지만 make check에서
+     *  이 함수를 통해 process_create를 실행하기 때문에 이 부분을 수정해주지 않으면 Test Case의 Thread_name이
+     *  커맨드 라인 전체로 바뀌게 되어 Pass할 수 없다.
+     */
+    -> process_create_initd에서
+    char *ptr_save;
+    strtok_r(file_name, " ", &ptr_save);
 
 -----------------------------------------------------------
 # 최초 시도
@@ -394,3 +455,21 @@ Executing 'args-single onearg':
 system call!
 ...무한대기
 
+# Syscall-FileSystem 일부
+
+pintos --fs-disk=10 -p tests/userprog/args-single:args-single -- -q -f run 'args-single onearg'
+
+1차시도 
+
+Booting from Hard Disk..Kernel command line: -q -f put args-single run 'args-single onearg'
+Kernel PANIC at ../../threads/thread.c:303 in thread_current(): assertion `t->status == THREAD_RUNNING' failed.
+Call stack: 0x8004219711 0x8004207326 0x8004207e1f 0x8004206cfa 0x8004206070.
+The `backtrace' program can make call stacks useful.
+Read "Backtraces" in the "Debugging Tools" chapter
+of the Pintos documentation for more information.
+Timer: 0 ticks
+Thread: 0 idle ticks, 0 kernel ticks, 0 user ticks
+Console: 478 characters output
+Keyboard: 0 keys pressed
+Exception: 0 page faults
+Powering off...
