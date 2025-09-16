@@ -112,6 +112,12 @@ struct thread {
 	int recent_cpu;
 	struct list_elem all_elem; 
 
+	// file
+	struct file *file_running;
+	struct file **fdt;
+	int fd;
+
+
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4;                     /* Page map level 4 */

@@ -319,6 +319,13 @@ pintos needs to kill the process and print the thread name and the exit status -
     char *ptr_save;
     strtok_r(file_name, " ", &ptr_save);
 
+
+
+
+
+
+
+
 -----------------------------------------------------------
 # 최초 시도
 FAIL tests/userprog/args-none
