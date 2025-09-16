@@ -630,6 +630,8 @@ static void init_thread (struct thread *t, const char *name, int priority)
 	t->lock_donated_for_waiting = NULL;
 	list_init(&(t->lst_donation));
 
+	
+	
 	t->nice = 0;
     t->recent_cpu = 0;
 
