@@ -112,6 +112,12 @@ struct thread {
 	int recent_cpu;
 	struct list_elem all_elem; 
 
+	// process
+	int status_exit; // 종료 상태 전달용
+
+	struct list lst_child; 
+	struct list_elem child_elem; 
+
 	// file
 	struct file *file_running;
 	struct file **fdt;

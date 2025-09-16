@@ -13,6 +13,9 @@ int process_wait (tid_t);
 void process_exit (void);
 void process_activate (struct thread *next);
 
+// process
+struct thread *get_child_process(int tid);
+
 // file
 int process_add_file_to_fdt(struct file *file);
 struct file *process_get_file(int fd); 
