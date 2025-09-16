@@ -224,6 +224,17 @@ tid_t thread_create (const char *name, int priority, thread_func *function, void
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
+	// file
+	// file
+	t->file_running = NULL;
+	t->fdt = palloc_get_multiple(PAL_ZERO, 1); 
+	if (t->fdt == NULL) return TID_ERROR; 
+	t->fd = 3; // 0: STDIN, 1: STDOUT, 2: STDERR
+	t->fdt[0] = 0;
+	t->fdt[1] = 0;
+	t->fdt[2] = 0;
+
+
 	/* Add to run queue. */
 	thread_unblock (t);
 	thread_swap_prior();
