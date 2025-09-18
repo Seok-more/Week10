@@ -462,21 +462,137 @@ Executing 'args-single onearg':
 system call!
 ...무한대기
 
-# Syscall-FileSystem 일부
+# Syscall
 
-pintos --fs-disk=10 -p tests/userprog/args-single:args-single -- -q -f run 'args-single onearg'
+FDT 및 fd 관리 문제임 open 까지는 됨
 
-1차시도 
+cd pintos
+make clean
+cd userprog
+make clean
+make
+cd build
 
-Booting from Hard Disk..Kernel command line: -q -f put args-single run 'args-single onearg'
-Kernel PANIC at ../../threads/thread.c:303 in thread_current(): assertion `t->status == THREAD_RUNNING' failed.
-Call stack: 0x8004219711 0x8004207326 0x8004207e1f 0x8004206cfa 0x8004206070.
-The `backtrace' program can make call stacks useful.
-Read "Backtraces" in the "Debugging Tools" chapter
-of the Pintos documentation for more information.
-Timer: 0 ticks
-Thread: 0 idle ticks, 0 kernel ticks, 0 user ticks
-Console: 478 characters output
-Keyboard: 0 keys pressed
-Exception: 0 page faults
-Powering off...
+cd pintos
+cd userprog
+cd build
+
+cd ..
+cd .. 
+make clean
+cd userprog
+make clean
+make
+cd build
+
+pass tests/userprog/args-none
+pass tests/userprog/args-single
+pass tests/userprog/args-multiple
+pass tests/userprog/args-many
+pass tests/userprog/args-dbl-space
+pass tests/userprog/halt
+pass tests/userprog/exit
+pass tests/userprog/create-normal
+pass tests/userprog/create-empty
+pass tests/userprog/create-null
+pass tests/userprog/create-bad-ptr
+pass tests/userprog/create-long
+pass tests/userprog/create-exists
+pass tests/userprog/create-bound
+
+FAIL tests/userprog/open-normal
+pass tests/userprog/open-missing
+FAIL tests/userprog/open-boundary
+pass tests/userprog/open-empty
+pass tests/userprog/open-null
+pass tests/userprog/open-bad-ptr
+FAIL tests/userprog/open-twice
+
+FAIL tests/userprog/close-normal
+FAIL tests/userprog/close-twice
+pass tests/userprog/close-bad-fd
+
+FAIL tests/userprog/read-normal
+FAIL tests/userprog/read-bad-ptr
+FAIL tests/userprog/read-boundary
+FAIL tests/userprog/read-zero
+pass tests/userprog/read-stdout
+pass tests/userprog/read-bad-fd
+
+FAIL tests/userprog/write-normal
+FAIL tests/userprog/write-bad-ptr
+FAIL tests/userprog/write-boundary
+FAIL tests/userprog/write-zero
+pass tests/userprog/write-stdin
+pass tests/userprog/write-bad-fd
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+pass tests/userprog/fork-once
+pass tests/userprog/fork-multiple
+pass tests/userprog/fork-recursive
+FAIL tests/userprog/fork-read
+FAIL tests/userprog/fork-close
+pass tests/userprog/fork-boundary
+
+pass tests/userprog/exec-once
+pass tests/userprog/exec-arg
+pass tests/userprog/exec-boundary
+FAIL tests/userprog/exec-missing
+pass tests/userprog/exec-bad-ptr
+FAIL tests/userprog/exec-read
+
+pass tests/userprog/wait-simple
+pass tests/userprog/wait-twice
+FAIL tests/userprog/wait-killed
+pass tests/userprog/wait-bad-pid
+
+pass tests/userprog/multi-recurse
+FAIL tests/userprog/multi-child-fd
+
+FAIL tests/userprog/rox-simple
+FAIL tests/userprog/rox-child
+FAIL tests/userprog/rox-multichild
+
+pass tests/userprog/bad-read
+pass tests/userprog/bad-write
+pass tests/userprog/bad-read2
+pass tests/userprog/bad-write2
+pass tests/userprog/bad-jump
+pass tests/userprog/bad-jump2
+
+FAIL tests/filesys/base/lg-create
+FAIL tests/filesys/base/lg-full
+FAIL tests/filesys/base/lg-random
+FAIL tests/filesys/base/lg-seq-block
+FAIL tests/filesys/base/lg-seq-random
+FAIL tests/filesys/base/sm-create
+FAIL tests/filesys/base/sm-full
+FAIL tests/filesys/base/sm-random
+FAIL tests/filesys/base/sm-seq-block
+FAIL tests/filesys/base/sm-seq-random
+FAIL tests/filesys/base/syn-read
+FAIL tests/filesys/base/syn-remove
+FAIL tests/filesys/base/syn-write
+
+FAIL tests/userprog/no-vm/multi-oom
+
+pass tests/threads/alarm-single
+pass tests/threads/alarm-multiple
+pass tests/threads/alarm-simultaneous
+pass tests/threads/alarm-priority
+pass tests/threads/alarm-zero
+pass tests/threads/alarm-negative
+pass tests/threads/priority-change
+pass tests/threads/priority-donate-one
+pass tests/threads/priority-donate-multiple
+pass tests/threads/priority-donate-multiple2
+pass tests/threads/priority-donate-nest
+pass tests/threads/priority-donate-sema
+pass tests/threads/priority-donate-lower
+pass tests/threads/priority-fifo
+pass tests/threads/priority-preempt
+pass tests/threads/priority-sema
+pass tests/threads/priority-condvar
+pass tests/threads/priority-donate-chain
+36 of 95 tests failed.

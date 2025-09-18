@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -117,6 +118,11 @@ struct thread {
 
 	struct list lst_child; 
 	struct list_elem child_elem; 
+	struct intr_frame if_parent; // 자식에게 전달용
+
+	struct semaphore sema_fork;  // 자식이 자신의 fork가 완료될 때, 부모에게 알림
+    struct semaphore sema_exit;  // 자식이 종료될 준비가 됐을 때, 부모에게 알림
+    struct semaphore sema_wait;  // 부모가 자식이 완전히 종료될 때까지 대기
 
 	// file
 	struct file *file_running;
