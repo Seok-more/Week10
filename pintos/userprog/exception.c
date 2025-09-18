@@ -145,8 +145,8 @@ page_fault (struct intr_frame *f) {
 	if (vm_try_handle_fault (f, fault_addr, user, write, not_present))
 		return;
 #endif
-	// 테스트 통과용
-	exit(-1);
+	// 테스트 통과용 여기야여기
+	// exit(-1);
 	/* Count page faults. */
 	page_fault_cnt++;
 

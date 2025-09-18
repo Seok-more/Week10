@@ -58,6 +58,18 @@ file_close (struct file *file) {
 	}
 }
 
+// void file_close(struct file *file) {
+//     if (file != NULL) {
+//         printf("[DEBUG] file_close: file=%p, file->inode=%p\n", file, file->inode);
+//         file_allow_write(file);
+//         printf("[DEBUG] file_close: after file_allow_write\n");
+//         inode_close(file->inode);
+//         printf("[DEBUG] file_close: after inode_close\n");
+//         free(file);
+//         printf("[DEBUG] file_close: after free(file)\n");
+//     }
+// }
+
 /* Returns the inode encapsulated by FILE. */
 struct inode *
 file_get_inode (struct file *file) {

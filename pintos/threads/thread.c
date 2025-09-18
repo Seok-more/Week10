@@ -124,11 +124,6 @@ thread_init (void) {
 	initial_thread = running_thread ();
 	init_thread (initial_thread, "main", PRI_DEFAULT);
 
-	// if (thread_mlfqs)
-	// {
-	// 	list_push_back(&all_list, &(initial_thread->all_elem));
-	// }
-
 	initial_thread->status = THREAD_RUNNING;
 	initial_thread->tid = allocate_tid ();
 }
@@ -224,10 +219,12 @@ tid_t thread_create (const char *name, int priority, thread_func *function, void
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
-	// file
+	// process
+	list_push_back(&thread_current()->lst_child, &t->child_elem);
+
 	// file
 	t->file_running = NULL;
-	t->fdt = palloc_get_multiple(PAL_ZERO, 1); 
+	t->fdt = palloc_get_multiple(PAL_ZERO, 2); 
 	if (t->fdt == NULL) return TID_ERROR; 
 	t->fd = 3; // 0: STDIN, 1: STDOUT, 2: STDERR
 	t->fdt[0] = 0;
@@ -325,10 +322,15 @@ thread_tid (void) {
 /* Deschedules the current thread and destroys it.  Never
    returns to the caller. */
 void
-thread_exit (void) {
+thread_exit (void) 
+{
 	ASSERT (!intr_context ());
 
 #ifdef USERPROG
+
+	struct thread *curr = thread_current();
+	printf("wtf thread : name=%s, tid=%d, status_exit=%d\n", curr->name, curr->tid, curr->status_exit);
+	
 	process_exit ();
 #endif
 	/** project1-Advanced Scheduler */
@@ -641,6 +643,12 @@ static void init_thread (struct thread *t, const char *name, int priority)
 	t->lock_donated_for_waiting = NULL;
 	list_init(&(t->lst_donation));
 
+	// process
+	list_init(&(t->lst_child));
+	t->status_exit = 0;
+	sema_init(&t->sema_fork, 0);
+    sema_init(&t->sema_exit, 0);
+    sema_init(&t->sema_wait, 0);
 	
 	
 	t->nice = 0;
